@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Local Authority - Propensity of Cycle</title>
+
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link rel="shortcut icon" href="www/icons/favicon.ico">
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.0.3/dist/leaflet.css" />
+<script src="https://unpkg.com/leaflet@1.0.3/dist/leaflet.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.0/jquery.min.js"></script>
+
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet-easybutton@2.0.0/src/easy-button.css">
+<script src="https://unpkg.com/leaflet-easybutton@2.0.0/src/easy-button.js"></script>
+
+<link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.3.0/css/font-awesome.min.css"/>
+
+<link rel="stylesheet" href="www/la-map-resources/leaflet-search.css" />
+
+<script type="text/javascript" src="www/la-map-resources/leaflet-control-credits.js"></script>
+<link rel="stylesheet" href="www/la-map-resources/leaflet-control-credits.css" />
+
+<script type="text/javascript" src="www/la-map-resources/L.Control.SlideMenu.js"></script>
+<link rel="stylesheet" href="www/la-map-resources/L.Control.SlideMenu.css" />
+
+
+<style>
+ body {
+  padding: 0;
+  margin: 0;
+  }
+  html, body, #map {
+    height: 100%;
+    width: 100%;
+}
+.info-box {
+  padding: 6px 8px;
+  font: 14px/16px Arial, Helvetica, sans-serif;
+  background: white;
+  background: rgba(255,255,255,0.8);
+  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  border-radius: 5px;
+}
+
+.leaflet-control.cycle-to-work {
+  width: 300px;
+  height: 85px;
+}
+
+.info b {
+  margin: 0 0 5px;
+  color: #777;
+}
+
+.legend {
+  text-align: left;
+  line-height: 18px;
+  color: #555;
+}
+
+.legend i {
+  width: 18px;
+  height: 18px;
+  float: left;
+  margin-right: 8px;
+  opacity: 0.7;
+}
+
+.leaflet-control-layers label {
+  margin-bottom: initial;
+}
+</style>
+
+<script type="text/javascript">
+</script>
+
+</head>
+<body>
+
+<div id='map'></div>
+<script type="text/javascript" src="www/la-map-resources/la.js"></script>
+<script src="www/la-map-resources/leaflet-search.js"></script>
+<script src="www/assets/google-analytics.js"></script>
+<link rel="stylesheet" href = "www/la-map-resources/leaflet-search.src.css">
+
+<script type="text/javascript">
+
+    var map = L.map('map').setView([ 53, -0.4], 7);
+
+    L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/light_all/{z}/{x}/{y}.png', {
+      maxZoom: 18,
+      attribution: '<a href="https://rawgit.com/npct/pct-shiny/master/regions_www/laresults.csv" target = "_blank">Data</a> | ' +
+      '<a href="https://rawgit.com/npct/pct-shiny/master/regions_www/lacodebook.csv" target = "_blank">Codebook</a> | ' +
+      '<a href="https://leafletjs.com" target = "_blank">Leaflet</a> | ' +
+      'Map data &copy; <a href="https://openstreetmap.org" target = "_blank">OpenStreetMap</a> contributors | ' +
+      '&copy; <a href="https://carto.com/attribution" target = "_blank">CARTO</a> contributors | ' +
+      '<a href="https://creativecommons.org/licenses/by-sa/2.0/" target = "_blank">CC-BY-SA</a>'
+    }).addTo(map);
+
+    // Don't show the 'Leaflet' text. Attribution overload
+    map.attributionControl.setPrefix('');
+
+    map.options.minZoom = 5;
+
+    var home = {
+      lat: 53,
+      lng: -0.4,
+      zoom: 7
+    };
+
+
+    L.easyButton('fa-map-marker', function (){
+      map.locate({setView: true, maxZoom: 10});
+    },'Set view to your current location').addTo(map);
+
+    var nameLayer = L.geoJson(la, {
+      style: mapStyle('name'),
+      onEachFeature: onEachFeature('name')
+    });
+
+    var searchControl = new L.Control.Search({
+  		layer: nameLayer,
+  		propertyName: 'name',
+  		marker: false,
+  		autoCollapse: true,
+		  autoType: true,
+		  minLength: 1,
+		  circleLocation:true,
+  		moveToLocation: function(latlng, title, map) {
+  			//map.fitBounds( latlng.layer.getBounds() );
+  			var zoom = map.getBoundsZoom(latlng.layer.getBounds());
+    			map.setView(latlng, zoom); // access the zoom
+  		}
+  	});
+
+  	searchControl.on('search:locationfound', function(e) {
+
+  	}).on('search:collapsed', function(e) {
+
+  	});
+
+  	map.addControl(searchControl);  //inizialize search control)
+
+    L.easyButton('fa-undo', function(btn, map){
+      map.setView([home.lat, home.lng], home.zoom);
+    },'Reset view to default').addTo(map);
+
+
+    var selectedLayer = "olc";
+    var selectedVariable = "slc"
+    var combined_var_name = "bicycle"
+    var featureGroup = null;
+
+     map.on('baselayerchange', function (e) {
+
+      if (e.name == "Census 2011")
+        selectedLayer = "olc"
+      else if(e.name == "Government Target")
+        selectedLayer = "govtarget"
+      else if(e.name == "Gender Equality")
+        selectedLayer = "gendereq"
+      else if(e.name == "Go Dutch")
+        selectedLayer = "dutch"
+      else if(e.name == "Ebikes")
+        selectedLayer = "ebike"
+
+      if(e.name == "Cycling")
+        selectedVariable = "slc"
+      else if(e.name == "Health")
+        selectedVariable = "sideath_heat"
+      else if(e.name == "CO2")
+        selectedVariable = "sico2"
+
+
+      combined_var_name = data_filter(selectedLayer, selectedVariable);
+
+      setControls();
+
+      featureGroup ? featureGroup.clearLayers() : "";
+
+      featureGroup = L.geoJson(la, {
+          style: mapStyle(combined_var_name),
+          onEachFeature: onEachFeature(combined_var_name)
+      }).addTo(map);
+
+      // Switch to the negative legend...
+      if (selectedVariable === "sideath_heat") {
+          this.removeControl(cycling_legend);
+          this.removeControl(co2_legend);
+          health_legend.addTo(this);
+      }
+      else if(selectedVariable === 'sico2'){
+          this.removeControl(cycling_legend);
+          this.removeControl(health_legend);
+          co2_legend.addTo(this);
+      } else {
+          this.removeControl(health_legend);
+          this.removeControl(co2_legend);
+          cycling_legend.addTo(this);
+      }
+
+
+    });
+
+
+    function setControls(){
+      // Disable CO2 and Health for Census 2011 scenario
+      if (combined_var_name == "bicycle") {
+         // Disable Health and CO2 radio buttons
+         $('input:radio[name="leaflet-base-layers"]:not(:checked)').each(function () {
+            if ($(this).parent().text().trim() == "Health" || $(this).parent().text().trim() == "CO2"){
+                $(this).attr('disabled', true);
+            }
+        });
+       }else{
+          $('input:radio[name="leaflet-base-layers"]:not(:checked)').each(function () {
+              $(this).attr('disabled', false);
+          });
+       }
+
+      // Disable census 2011 when Health or CO2 is selected
+      if (selectedVariable != "slc") {
+         $('input:radio[name="leaflet-base-layers"]:not(:checked)').each(function () {
+            if ($(this).parent().text().trim() == "Census 2011"){
+                $(this).attr('disabled', true);
+            }
+        });
+       }
+
+      // Enable cycling variable for census 2011
+      if (selectedVariable == "slc") {
+         $('input:radio[name="leaflet-base-layers"]:not(:checked)').each(function () {
+            if ($(this).parent().text().trim() == "Cycling"){
+                $(this).attr('disabled', true);
+            }
+        });
+       }
+    }
+
+
+    map.on('moveend', function (){
+      setControls();
+
+    })
+
+    function data_filter(scenario, type){
+      if(scenario == "olc" && type == "slc")
+       return "bicycle";
+      else
+       return scenario + '_' + type;
+    }
+
+    function get_type(scenario){
+      if(scenario == 'Census 2011')
+        return 'olc';
+      else
+        return 'slc';
+    }
+
+    var cycling_legend = L.control({position: 'topleft'});
+
+    cycling_legend.onAdd = function (map) {
+
+      var div = L.DomUtil.create('div', 'info-box legend'),
+        grades = [0, 2, 4, 7, 10, 15, 20, 25, 30, 40],
+        bin_labels = ["0 to 1%",
+          "2 to 3%",
+          "4 to 6%",
+          "7 to 9%",
+          "10 to 14%",
+          "15 to 19%",
+          "20 to 24%",
+          "25 to 29%",
+          "30 to 39%",
+          "40%+"],
+
+      labels = ['<strong> Cycling % </strong>'],
+      from;
+      for (var i = 0; i < grades.length; i++) {
+        from = grades[i];
+        labels.push(
+            '<i style="background:' + getColor(from + 1) + '"></i> ' +
+          bin_labels[i]);
+      }
+        div.innerHTML = labels.join('<br>');
+        return div;
+    };
+
+    cycling_legend.addTo(map);
+
+    var health_legend = L.control({position: 'topleft'});
+    health_legend.onAdd = function (map) {
+
+      var div = L.DomUtil.create('div', 'info-box legend'),
+      grades = [-0.99, -0.88, -0.77, -0.66, -0.55, -0.45, -0.34, -0.23, -0.12,  -0.01],
+      bin_labels = ["0 to -0.01",
+        "-0.12 to -0.02",
+        "-0.23 to -0.09",
+        "-0.34 to -0.21",
+        "-0.45 to -0.32",
+        "-0.55 to -0.43",
+        "-0.66 to -0.55",
+        "-0.77 to -0.66",
+        "-0.88 to -0.77",
+        "-0.99 to -0.89"],
+
+      labels = ['<strong> Deaths avoided<br>per 10,000 commuters </strong>'],
+      from;
+      for (var i = 0; i < grades.length ; i++) {
+        from = grades[(grades.length - 1) - i];
+        labels.push(
+            '<i style="background:' + getColor(from, grades) + '"></i> ' +
+          bin_labels[i]);
+      }
+      div.innerHTML = labels.join('<br>');
+      return div;
+    };
+
+    var co2_legend = L.control({position: 'topleft'});
+    co2_legend.onAdd = function (map) {
+
+      var div = L.DomUtil.create('div', 'info-box legend'),
+      grades = [-680, -605, -530, -455, -380, -305, -230, -155,  -79, -4],
+      bin_labels = ["-4 to -78",
+        "-79 to -154",
+        "-155 to -229",
+        "-230 to -304",
+        "-305 to -379",
+        "-380 to -454",
+        "-455 to -529",
+        "-530 to -604",
+        "-605 to -679",
+        "-680+"],
+
+      labels = ['<strong> TCO2e reduction<br>per 10,000 commuters </strong>'],
+      from;
+      for (var i = 0; i < grades.length ; i++) {
+        from = grades[(grades.length - 1) - i];
+        labels.push(
+            '<i style="background:' + getColor(from, grades) + '"></i> ' +
+          bin_labels[i]);
+      }
+      div.innerHTML = labels.join('<br>');
+      return div;
+    };
+
+
+    var default_census_var = L.tileLayer('');
+
+    var census_var_layers = {
+      "Cycling": default_census_var
+    };
+
+    var census_var = L.control.layers(census_var_layers, null, {collapsed: false}, {position: 'topleft'});
+
+    var default_non_census_var = L.tileLayer('');
+
+    var non_census_var_layers = {
+      "Cycling": default_non_census_var,
+      "Health": L.tileLayer(''),
+      "CO2" : L.tileLayer('')
+    };
+
+    var non_census_var = L.control.layers(non_census_var_layers, null, {collapsed: false}, {position: 'topleft'});
+
+    // control that shows region info on hover
+    var info = L.control();
+
+    info.onAdd = function (map) {
+      this._div = L.DomUtil.create('div', 'info-box cycle-to-work');
+      this.update();
+      return this._div;
+    };
+
+    // Armin's solution to a fixed decimal places
+    // taken from a stackoverflow thread:
+    // http://stackoverflow.com/questions/1726630/formatting-a-number-with-exactly-two-decimals-in-javascript
+    // source: https://gist.github.com/ArminVieweg/28647e735aa6efaba401
+    function sign(num) {
+      // IE does not support method sign here
+      if (typeof Math.sign === 'undefined') {
+        if (num > 0) {
+          return 1;
+        }
+        if (num < 0) {
+          return -1;
+        }
+        return 0;
+      }
+      return Math.sign(num);
+    }
+
+    function precise_round(num, decimals) {
+      var t=Math.pow(10, decimals);
+      return (Math.round((num * t) + (decimals>0?1:0)*(sign(num) * (10 / Math.pow(100, decimals)))) / t).toFixed(decimals);
+    }
+
+    info.scenarioMap = {
+      bicycle: "2011 Census",
+      govtarget_slc: "Government Target",
+      gendereq_slc: "Gender Equality",
+      dutch_slc: "Go Dutch",
+      ebike_slc: "Ebike"
+    };
+
+    info.update = function (props, all_var, scenario) {
+      var regionText;
+
+      if(scenario !== undefined && all_var !== undefined && props) {
+        var scenario_name = "2011 Census";
+        if (scenario.indexOf('govtarget') !== -1)
+          scenario_name = "Government Target";
+        else if (scenario.indexOf('dutch') !== -1)
+          scenario_name = "Go Dutch";
+        else if (scenario.indexOf('ebike') !== -1)
+          scenario_name = "Ebike"
+
+
+        var var_value = precise_round((props[scenario] / all_var * 100), 1);
+        if(scenario.indexOf('sideath_heat') !== -1)
+          var_value = precise_round((props[scenario] * 10000 / all_var), 2);
+        else if(scenario.indexOf('sico2') !== -1)
+          var_value = Math.round(props[scenario] * 10000 / all_var);
+
+        var message = var_value + '% cycling to work'
+        if(scenario.indexOf('sideath_heat') !== -1){
+          message = var_value + ' deaths per 10,000 commuters/year' + '<br/>' +
+                    + precise_round((props[scenario]), 2) + ' deaths/year in total'
+        }else if(scenario.indexOf('sico2') !== -1){
+          message = var_value + ' tonnes CO2e per 10,000 commuters/year' + '<br/>' +
+                    + Math.round(props[scenario]) + ' tonnes CO2e/year in total'
+        }
+
+        regionText = '<b>' + capitalize(props.name) + ', ' + scenario_name + '</b><br />' +  message;
+      } else {
+        regionText = '<b>Hover over a local authority</b><br/>';
+      }
+
+      var variable_title = '';
+      if(scenario !== undefined){
+        if (scenario.indexOf('bicycle') !== -1 || scenario.indexOf('slc') !== -1)
+          variable_title = '<b>Cycling to work</b><br/>'
+        else if (scenario.indexOf('_heat') !== -1)
+          variable_title = '<b>Health Impacts - Deaths Avoided</b><br/>';
+        else if(scenario.indexOf('sico2') !== -1)
+          variable_title = '<b>Carbon Impacts - CO2 Reduction</b><br/>';
+      }
+
+      this._div.innerHTML =  variable_title + regionText;
+    };
+
+    // Capitalize all words in a region except 'and' and 'of'
+    function capitalize(s){
+      s = s.replace(/-/g, ' ');
+      s = s.toLowerCase().replace( /\b./g, function(a){ return a.toUpperCase(); } );
+      s = s.replace('And', 'and');
+      s = s.replace('Of', 'of');
+      s = s.replace('\'S', '\'s');
+      return s;
+    }
+
+    info.addTo(map);
+
+
+    function getColor(d, color_bin) {
+      if (color_bin === undefined){
+        return d >= 40  ? '#4575B4' :
+          d >= 30  ? '#74ADD1' :
+          d >= 25  ? '#ABD9E9' :
+          d >= 20  ? '#C6DBEF' :
+          d >= 15  ? '#ffffbf' :
+          d >= 10  ? '#FEE090' :
+          d >= 7   ? '#FDAE61' :
+          d >= 4   ? '#F46D43' :
+          d >= 2   ? '#D73027' :
+          d >= 0   ? '#A50026' :
+          '#313695';
+      }else{
+
+        return d <= color_bin[0]  ? '#4575B4' :
+          d <= color_bin[1] ? '#74ADD1' :
+          d <= color_bin[2] ? '#ABD9E9' :
+          d <= color_bin[3] ? '#C6DBEF' :
+          d <= color_bin[4] ? '#ffffbf' :
+          d <= color_bin[5] ? '#FEE090' :
+          d <= color_bin[6] ? '#FDAE61' :
+          d <= color_bin[7] ? '#F46D43' :
+          d <= color_bin[8] ? '#D73027' :
+          d <= color_bin[9]  ? '#A50026' :
+          '#D73027';
+      }
+
+    }
+
+    var polyColor = 'black';
+    var polyWeight = 0.5;
+    var polyFillOpacity = polyOpacity = 0.8;
+    var polyDashArry = '';
+
+
+
+    function highlightFeature(property) {
+      return function(e) {
+        var layer = e.target;
+
+        layer.setStyle({
+          weight: 5,
+          color: '#666',
+          dashArray: '',
+          fillOpacity: polyFillOpacity
+        });
+
+        if (!L.Browser.ie && !L.Browser.opera && !L.Browser.edge) {
+          layer.bringToFront();
+        }
+        // Add the variable 'all'
+        info.update(layer.feature.properties, layer.feature.properties.all, property);
+      };
+    }
+
+    function resetHighlight(property, feature) {
+      return function(e) {
+        e.target.setStyle(mapStyle(property)(feature));
+        info.update();
+      };
+    }
+
+    function zoomToFeature(e) {
+      window.open(e.target.feature.properties.url, '_top');
+    }
+
+    function onEachFeature(property) {
+      return function(feature, layer) {
+        layer.on({
+          mouseover: highlightFeature(property),
+          mouseout: resetHighlight(property, feature),
+          click: zoomToFeature
+        });
+      };
+    }
+
+    function mapStyle(property) {
+      return function (feature) {
+        return {
+          weight: polyWeight,
+          //opacity: poly_opacity,
+          color: polyColor,
+          dashArray: polyDashArry,
+          fillOpacity: polyFillOpacity,
+          fillColor: getNormalizedColor(property, feature.properties[property], feature.properties.all)
+        };
+      };
+    }
+
+
+    function getNormalizedColor(prop, prop_value, all_var){
+
+        if (prop !== undefined && prop_value !== undefined && all_var !== undefined){
+          var var_value = getColor(Math.round(prop_value / all_var * 100));
+          if(prop.indexOf('sideath_heat') !== -1 || prop.indexOf('sico2') !== -1){
+            //grades = [-0.99, -0.88, -0.77, -0.66, -0.55, -0.45, -0.34, -0.23, -0.12,  -0.01]
+            var col_bin = [-0.89, -0.78, -0.67, -0.56, -0.46, -0.35, -0.24, -0.13,  -0.02, Infinity];
+            if (prop.indexOf('sico2') !== -1)
+              col_bin = [-680, -605, -530, -455, -380, -305, -230, -155,  -79, -4];
+            var_value = getColor( precise_round((prop_value * 10000 / all_var), 2), col_bin);
+          }
+          return var_value;
+        }
+        return 0;
+    }
+
+    var default_scenario = L.tileLayer('');
+
+    var map_layers = {
+      "Census 2011": default_scenario,
+      "Government Target": L.tileLayer(''),
+      "Gender Equality": L.tileLayer(''),
+      "Go Dutch": L.tileLayer(''),
+      "Ebikes": L.tileLayer('')
+    };
+
+    L.control.layers(map_layers, null, {collapsed: false}, {position: 'topleft'}).addTo(map);
+
+    // Add census as the default layer
+    default_scenario.addTo(map);
+
+    non_census_var.addTo(map);
+    default_non_census_var.addTo(map);
+
+    var credctrl = L.controlCredits({
+      image: "www/icons/android-icon-36x36.png",
+      link: "//pct.bike",
+      text: "Part of the Propensity to<br/>Cycle Tool (PCT) project"
+    }).addTo(map);
+
+
+    L.easyButton('fa fa-external-link', function(btn, map){
+      window.open("http://www.cedar.iph.cam.ac.uk/resources/evidence/eb-14-englands-cycling-potential/");
+    },'Read local-authority evidence briefing', {position: 'bottomleft'}).addTo(map);
+
+
+    // contents
+    var right = '<h1>Information</h1>';
+    var contents = '<hr><h2>The four scenarios</h2> Four scenarios of change were developed to help planners understand which areas and routes have the highest potential for cycling under different sets of assumptions: <br><strong>Government Target</strong>, which assumes that cycling levels double nationally, and uses trip distance and hilliness to predict which trips would switch. <br><strong>Gender Equality</strong>, in which women have the same propensity to cycle a given trip as men.<br> <strong>Go Dutch</strong> draws on Dutch Travel Survey data to estimate what cycling levels one would observe if England acquired Dutch cycling infrastructure and Dutch cycling culture, but kept its current trip distances and hilliness.<br> <strong>Ebikes</strong> takes Go Dutch even further, and uses additional data on how ebike ownership encourages longer trips and overcomes hilliness.';
+    var slideMenu = L.control.slideMenu('', {position: 'topright', menuposition: 'topright', width: '30%', delay: '10'}).addTo(map);
+    slideMenu.setContents(right + contents);
+
+</script>
+
+</body>
+</html>
