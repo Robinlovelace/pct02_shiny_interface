@@ -782,12 +782,12 @@ shinyServer(function(input, output, session) {
     leaflet() %>%
       # Centroids loaded invisibly to tell it the extent of the map
       # Anna note: centroids do not exist for some purposes like schools - if ever want to *start* in schools layer need to change this to zones
-      addCircleMarkers( .,
-        data = to_plot$centroids,
-        radius = 0,
-        group = "centroids",
-        opacity = 0.0
-      ) %>%
+      # addCircleMarkers( .,
+      #   data = to_plot$centroids,
+      #   radius = 0,
+      #   group = "centroids",
+      #   opacity = 0.0
+      # ) %>%
       setView(.,
         lng = to_plot$center_dim[1, 1],
         lat = to_plot$center_dim[1, 2],
