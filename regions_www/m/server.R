@@ -26,45 +26,16 @@ source("pct_shiny_funs.R", local = T)
 available_locally_pkgs <- c("shiny", "leaflet", "sp")
 lapply(available_locally_pkgs, library, character.only = T)
 
-must_be_installed_pkgs <- c("rgdal", "rgeos", "shinyjs", "dplyr", "readr", "geojsonio", "DT")
-installed <- must_be_installed_pkgs %in% installed.packages()
-if (length(must_be_installed_pkgs[!installed]) > 0) {
-  stop(paste(c(
-    "Missing packages:", must_be_installed_pkgs[!installed]
-  ), collapse = " "))
-}
-
 ## Path directories to load data (expect regional data as a sibling of interface_root)
 interface_root <- file.path("..", "..")
 data_regional_root <-  file.path(interface_root, '..', 'pct01c_model_outputs_regional')
 data_national_root <-  file.path(interface_root, '..', 'pct01b_model_outputs_national')
-
-## Sha files [Anna question: first 9 lines added by me, wasn't clear to me otherwise how read the latest master branch? Or was the intention to set manually?]
-gitArgs_nat <- c("--git-dir", file.path(data_national_root, ".git"), "rev-parse", "--short", "HEAD", ">", file.path(interface_root, "outputs_national_sha"))
-gitArgs_reg <- c("--git-dir", file.path(data_regional_root, ".git"), "rev-parse", "--short", "HEAD", ">", file.path(interface_root, "outputs_regional_sha"))
-if (.Platform$OS.type == "windows"){
-  shell(paste(append("git", gitArgs_nat), collapse = " "), wait = T)
-  shell(paste(append("git", gitArgs_reg), collapse = " "), wait = T)
-} else {
-  system2("git", gitArgs_nat, wait = T)
-  system2("git", gitArgs_reg, wait = T)
-}
 
 outputs_national_sha <-  as.character(readLines(file.path(interface_root, "outputs_national_sha")))
 outputs_regional_sha <-  as.character(readLines(file.path(interface_root, "outputs_regional_sha")))
 
 ## Check if working on server and if not initiate environment (including packages)
 on_server <- grepl('^/var/shiny/pct-shiny', getwd())
-if (!on_server) {
-  source(file.path(interface_root, "scripts", "init.R"))
-  init_dev_env(interface_root, data_regional_root, outputs_regional_sha, c(available_locally_pkgs, must_be_installed_pkgs))
-}
-
-repo_sha <-  as.character(readLines(file.path(interface_root, "repo_sha")))
-
-# Save current sha, required for files to be downloaded
-download_sha <- data.frame(repo_sha = repo_sha, outputs_regional_sha = outputs_regional_sha, outputs_national_sha = outputs_national_sha)
-saveRDS(download_sha, file="../tabs/download_params_sha_current.rds")
 
 ## Check if we are on the production [live] server (npt followed by any number of digits (only) is a prod machine)
 production_branch <- grepl("npt\\d*$", Sys.info()["nodename"])

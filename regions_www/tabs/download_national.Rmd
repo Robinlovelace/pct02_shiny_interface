@@ -8,8 +8,6 @@ output:
 
 ```{r echo=FALSE}
 source("../m/pct_shiny_funs.R")
-sha <- readRDS("download_params_sha_current.rds")
-
 ```
 
 <!--html_preserve-->
